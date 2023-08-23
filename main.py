@@ -6,14 +6,14 @@ from functions import get_available_chats, shorten_string
 from messages import add_message, remove_message, get_first_message
 
 TOKEN: Final = "6560466673:AAH5JnpF9JJos5bT5BDBCC_4UslF43EDjHY"
-ADMIN_IDS: list[int] = [938510955]
+ADMIN_IDS: list[int] = [938510955,885083447]
 
 # Storage of chats, messages and available admins
 active_chats: dict[int:int or None] = {}  # Active chats in {user_id: admin_id} format
 active_admin_chats: dict[int:int] = {}  # Active chats in {admin_id: user_id} format
 available_admins: list[int] = []  # List of available admins
 users_sending_questions: list[int] = []  # List of users sending questions to the database
-admins_answering_questions: dict[int:dict or None] = {}  # List of admins answering questions from the database
+admins_reading_questions: dict[int:dict or None] = {}  # List of admins answering questions from the database
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -24,18 +24,18 @@ async def show_stored_message(admin_id: int, update: Update):
     first_message = get_first_message()
     if first_message is None:
         await update.message.reply_text("Нет заданных вопросов.")
-        admins_answering_questions.pop(admin_id)
+        if admin_id in admins_reading_questions:
+            admins_reading_questions.pop(admin_id)
     else:
-        admins_answering_questions[admin_id] = first_message
-        await update.message.reply_text("Напишите '/help' когда готовы перейти к следющему вопросу.")
+        admins_reading_questions[admin_id] = first_message
         await update.message.reply_text(f"Сообщение от пользователя {first_message['username']}:\n{first_message['message']}")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id in ADMIN_IDS:
-        if user_id not in admins_answering_questions:
-            admins_answering_questions[user_id] = None
+        if user_id not in admins_reading_questions:
+            admins_reading_questions[user_id] = None
 
         await show_stored_message(user_id, update)
     else:
@@ -111,13 +111,13 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_id in users_sending_questions:
         add_message(user_id, username, message)
         users_sending_questions.remove(user_id)
-        await update.message.reply_text("Ваш вопрос сохранен, ожидайте ответа")
+        await update.message.reply_text("Мы с радостью рассмотрим ваш вопрос на следующей конференции!")
     else:
         await update.message.reply_text("Неизвестная команда.")
 
 
 async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(admins_answering_questions)
+    print(admins_reading_questions)
     text_message = update.message.text
     admin_id = update.message.from_user.id
     user_id = active_admin_chats.get(admin_id, None)
@@ -135,27 +135,38 @@ async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TY
 
             await connect_admin_to_chat(admin_id, update, context)
             print(active_chats, active_admin_chats, available_admins)
+    # TODO: leave and
     elif text_message == '/leave':
         if admin_id in available_admins:
             available_admins.remove(admin_id)
             await update.message.reply_text('Вы вышли из режима чатов.')
         else:
             await update.message.reply_text('Вы не в режиме чатов.')
-    else:
-        if admin_id in admins_answering_questions:
-            chat_id = int(admins_answering_questions[admin_id]['user_id'])
-            username = admins_answering_questions[admin_id]['username']
-            message = shorten_string(admins_answering_questions[admin_id]['message'])
-            message_id = admins_answering_questions[admin_id]['message_id']
-
-            answer = f"Ответ на ваш вопрос '{message}':\n{update.message.text}"
-            await context.bot.send_message(chat_id=chat_id, text=answer)
-            await update.message.reply_text(f'Ваше сообщение отправлено {username}.')
-
+    elif text_message == '/done':
+        if admin_id in admins_reading_questions:
+            message_id = admins_reading_questions[admin_id]['message_id']
             remove_message(message_id)
-            if admin_id in admins_answering_questions:
-                admins_answering_questions.pop(admin_id)
-        elif user_id is None:
+            if admin_id in admins_reading_questions:
+                admins_reading_questions.pop(admin_id)
+            await update.message.reply_text('Вопрос закрыт.')
+            await show_stored_message(admin_id, update)
+        else:
+            await update.message.reply_text('Вы не в режиме читания вопросов.')
+    else:
+        # if admin_id in admins_reading_questions:
+        #     chat_id = int(admins_reading_questions[admin_id]['user_id'])
+        #     username = admins_reading_questions[admin_id]['username']
+        #     message = shorten_string(admins_reading_questions[admin_id]['message'])
+        #     message_id = admins_reading_questions[admin_id]['message_id']
+        #
+        #     answer = f"Ответ на ваш вопрос '{message}':\n{update.message.text}"
+        #     await context.bot.send_message(chat_id=chat_id, text=answer)
+        #     await update.message.reply_text(f'Ваше сообщение отправлено {username}.')
+        #
+        #     remove_message(message_id)
+        #     if admin_id in admins_reading_questions:
+        #         admins_reading_questions.pop(admin_id)
+        if user_id is None:
             await update.message.reply_text('Вы не подключены к чату.')
         else:
             await context.bot.send_message(chat_id=user_id, text=update.message.text)
