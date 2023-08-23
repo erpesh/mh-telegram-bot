@@ -1,13 +1,11 @@
-import csv
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from messages import get_messages, add_message, remove_message, get_formatted_messages, get_first_message
+
+from functions import get_available_chats, shorten_string
+from messages import add_message, remove_message, get_first_message
 
 TOKEN: Final = "6560466673:AAH5JnpF9JJos5bT5BDBCC_4UslF43EDjHY"
-BOT_USERNAME: Final = '@uyt_test_bot'
-
-# Admin IDS
 ADMIN_IDS: list[int] = [938510955]
 
 # Storage of chats, messages and available admins
@@ -22,15 +20,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Привет, я тест бот')
 
 
-def shorten_string(input_string):
-    max_length = 50
-    if len(input_string) > max_length:
-        shortened = input_string[:max_length-3] + '...'
-        return shortened
-    else:
-        return input_string
-
-
 async def show_stored_message(admin_id: int, update: Update):
     first_message = get_first_message()
     if first_message is None:
@@ -38,11 +27,11 @@ async def show_stored_message(admin_id: int, update: Update):
         admins_answering_questions.pop(admin_id)
     else:
         admins_answering_questions[admin_id] = first_message
-        await update.message.reply_text("Напишите '/ask' когда готовы перейти к следющему вопросу.")
+        await update.message.reply_text("Напишите '/help' когда готовы перейти к следющему вопросу.")
         await update.message.reply_text(f"Сообщение от пользователя {first_message['username']}:\n{first_message['message']}")
 
 
-async def ask_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id in ADMIN_IDS:
         if user_id not in admins_answering_questions:
@@ -62,12 +51,8 @@ async def lib_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Наша библиотека - midashall.notion.site')
 
 
-def get_available_chats() -> list[int]:
-    return [key for key, value in active_chats.items() if value is None]
-
-
 async def connect_admin_to_chat(admin_id: int, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    available_chats = get_available_chats()
+    available_chats = get_available_chats(active_chats)
     if len(available_chats) > 0:
         first_chat = available_chats[0]
 
@@ -100,10 +85,11 @@ async def chat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=first_admin,
                 text=f"Вы подключены к чату с пользователем {user_id}. Напишите '/end' что бы завершить."
             )
-            await update.message.reply_text("Вы начали чат с администратором. Пожалуйста, задайте ваш вопрос и ожидайте ответ.")
+            await update.message.reply_text("Вы начали чат с администратором. Пожалуйста, задайте ваш вопрос и "
+                                            "ожидайте ответ.")
         else:
             active_chats[user_id] = None
-            await update.message.reply_text(f"Пожалуйста подождите, вы {len(get_available_chats())} в очереди.")
+            await update.message.reply_text(f"Пожалуйста подождите, вы {len(get_available_chats(active_chats))} в очереди.")
 
     print(active_chats, active_admin_chats, available_admins)
 
@@ -185,7 +171,7 @@ if __name__ == '__main__':
 
     # Commands
     app.add_handler(CommandHandler('start', start_command))
-    app.add_handler(CommandHandler('ask', ask_command))
+    app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('info', info_command))
     app.add_handler(CommandHandler('lib', lib_command))
     app.add_handler(CommandHandler("chat", chat_command))
