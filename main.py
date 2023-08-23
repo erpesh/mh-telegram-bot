@@ -1,11 +1,15 @@
+import json
 from typing import Final
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, ContextTypes, filters, CommandHandler, CallbackQueryHandler
 
 from messages import add_message, remove_message, get_first_message
 
-TOKEN: Final = "6560466673:AAH5JnpF9JJos5bT5BDBCC_4UslF43EDjHY"
-ADMIN_IDS: list[int] = [938510955, 885083447]
+with open('config.json') as config_file:
+    config = json.load(config_file)
+
+TOKEN: Final = config["TOKEN"]
+ADMIN_IDS: list[int] = config["ADMIN_IDS"]
 
 # Storage of chats, messages and available admins
 active_chats: dict[int:int or None] = {}  # Active chats in {user_id: admin_id} format

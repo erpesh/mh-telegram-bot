@@ -1,0 +1,4 @@
+{
+    "TOKEN": "Telegram bot Token",
+    "ADMIN_IDS": ["Telegram IDS of admins as integers"]
+}
