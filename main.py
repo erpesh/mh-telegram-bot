@@ -1,6 +1,6 @@
 from typing import Final
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, ContextTypes, filters, CommandHandler, CallbackQueryHandler
 
 from messages import add_message, remove_message, get_first_message
 
@@ -16,7 +16,37 @@ admins_reading_questions: dict[int:dict or None] = {}  # List of admins answerin
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Привет, я тест бот')
+    buttons = [
+        [InlineKeyboardButton("Задать вопрос на стрим", callback_data='question')],
+        [InlineKeyboardButton("Пообщаться с командой", callback_data='chat')],
+        [InlineKeyboardButton("Информация о сообществе", callback_data='info')],
+        [InlineKeyboardButton("Библиотека", callback_data='lib')]
+    ]
+    buttons_admin = [
+        [InlineKeyboardButton("Вопросы на стрим", callback_data='question')],
+        [InlineKeyboardButton("Чат с пользователями", callback_data='chat')],
+        [InlineKeyboardButton("Информация о сообществе", callback_data='info')],
+        [InlineKeyboardButton("Библиотека", callback_data='lib')]
+    ]
+    if update.message.from_user.id in ADMIN_IDS:
+        reply_markup = InlineKeyboardMarkup(buttons_admin)
+    else:
+        reply_markup = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text('Добро пожаловать в Midas Hall bot!', reply_markup=reply_markup)
+
+
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'question':
+        await help_command(update, context)
+    elif query.data == 'chat':
+        await chat_command(update, context)
+    elif query.data == 'info':
+        await info_command(update, context)
+    elif query.data == 'lib':
+        await lib_command(update, context)
 
 
 async def show_stored_message(admin_id: int, update: Update):
@@ -27,11 +57,15 @@ async def show_stored_message(admin_id: int, update: Update):
             admins_reading_questions.pop(admin_id)
     else:
         admins_reading_questions[admin_id] = first_message
-        await update.message.reply_text(f"Сообщение от пользователя {first_message['username']}:\n{first_message['message']}")
+        await update.message.reply_text(
+            f"Сообщение от пользователя {first_message['username']}:\n{first_message['message']}")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        update = update.callback_query
     user_id = update.message.from_user.id
+
     if user_id in ADMIN_IDS:
         if user_id not in admins_reading_questions:
             admins_reading_questions[user_id] = None
@@ -75,7 +109,10 @@ async def connect_admin_to_chat(admin_id: int, update: Update, context: ContextT
 
 
 async def chat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        update = update.callback_query
     user_id = update.message.from_user.id
+
     if user_id in ADMIN_IDS:
         await connect_admin_to_chat(user_id, update, context)
     else:
@@ -135,7 +172,6 @@ async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=user_id,
                 text="Чат с администратором завершен."
             )
-
             await connect_admin_to_chat(admin_id, update, context)
             print(active_chats, active_admin_chats, available_admins)
     elif text_message == '/leave':
@@ -170,6 +206,7 @@ if __name__ == '__main__':
     app = Application.builder().token(TOKEN).build()
 
     # Commands
+    app.add_handler(CallbackQueryHandler(button_click))
     app.add_handler(CommandHandler('start', start_command))
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('info', info_command))
