@@ -34,14 +34,6 @@ def remove_message(message_id):
                 writer.writerow([message['message_id'], message['user_id'], message['username'], message['message']])
 
 
-def get_formatted_messages():
-    message_list = get_messages()
-    rows_list = []
-    for message in message_list:
-        rows_list.append(f'MessageID: {message["message_id"]}, UserID: {message["user_id"]}, Username: {message["username"]}, Message: {message["message"]}')
-    return "\n".join(rows_list)
-
-
 def get_first_message():
     message_list = get_messages()
     return message_list[0] if message_list else None

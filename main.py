@@ -2,11 +2,10 @@ from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
-from functions import get_available_chats, shorten_string
 from messages import add_message, remove_message, get_first_message
 
 TOKEN: Final = "6560466673:AAH5JnpF9JJos5bT5BDBCC_4UslF43EDjHY"
-ADMIN_IDS: list[int] = [938510955,885083447]
+ADMIN_IDS: list[int] = [938510955, 885083447]
 
 # Storage of chats, messages and available admins
 active_chats: dict[int:int or None] = {}  # Active chats in {user_id: admin_id} format
@@ -51,8 +50,12 @@ async def lib_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Наша библиотека - midashall.notion.site')
 
 
+def get_available_chats() -> list[int]:
+    return [key for key, value in active_chats.items() if value is None]
+
+
 async def connect_admin_to_chat(admin_id: int, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    available_chats = get_available_chats(active_chats)
+    available_chats = get_available_chats()
     if len(available_chats) > 0:
         first_chat = available_chats[0]
 
@@ -89,7 +92,7 @@ async def chat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             "ожидайте ответ.")
         else:
             active_chats[user_id] = None
-            await update.message.reply_text(f"Пожалуйста подождите, вы {len(get_available_chats(active_chats))} в очереди.")
+            await update.message.reply_text(f"Пожалуйста подождите, вы {len(get_available_chats())} в очереди.")
 
     print(active_chats, active_admin_chats, available_admins)
 
@@ -135,7 +138,6 @@ async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TY
 
             await connect_admin_to_chat(admin_id, update, context)
             print(active_chats, active_admin_chats, available_admins)
-    # TODO: leave and
     elif text_message == '/leave':
         if admin_id in available_admins:
             available_admins.remove(admin_id)
@@ -153,19 +155,6 @@ async def handle_admin_messages(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             await update.message.reply_text('Вы не в режиме читания вопросов.')
     else:
-        # if admin_id in admins_reading_questions:
-        #     chat_id = int(admins_reading_questions[admin_id]['user_id'])
-        #     username = admins_reading_questions[admin_id]['username']
-        #     message = shorten_string(admins_reading_questions[admin_id]['message'])
-        #     message_id = admins_reading_questions[admin_id]['message_id']
-        #
-        #     answer = f"Ответ на ваш вопрос '{message}':\n{update.message.text}"
-        #     await context.bot.send_message(chat_id=chat_id, text=answer)
-        #     await update.message.reply_text(f'Ваше сообщение отправлено {username}.')
-        #
-        #     remove_message(message_id)
-        #     if admin_id in admins_reading_questions:
-        #         admins_reading_questions.pop(admin_id)
         if user_id is None:
             await update.message.reply_text('Вы не подключены к чату.')
         else:
